@@ -3,6 +3,9 @@ import io
 import tkinter
 import pandas
 import matplotlib
+
+import tkinter.colorchooser as colorchooser
+
 from tkinter import ttk, filedialog
 from matplotlib import figure
 from PIL import Image, ImageTk
@@ -19,6 +22,81 @@ window.title("Диаграмма")
 window.geometry("850x520")
 
 image = None
+DEFAULT_THICKNESS = 6
+r_val = 22
+g_val = 37
+b_val = 17
+DEFAULT_COLOR = f"#{r_val:02x}{g_val:02x}{b_val:02x}" 
+
+lines_history = []
+current_line_points = []
+current_canvas_objects = []
+canvas_objects_history = []
+
+def start_draw(event):
+    if not is_drawing_mode.get():
+        return
+    global current_line_points, current_canvas_objects
+    current_line_points = [(event.x / 600, 1 - (event.y / 450))]
+    current_canvas_objects = []
+
+def do_draw(event):
+    if not is_drawing_mode.get():
+        return
+    global current_line_points, current_canvas_objects
+    
+    if current_line_points:
+        prev_x = current_line_points[-1][0] * 600
+        prev_y = (1 - current_line_points[-1][1]) * 450
+        
+        thick = current_thickness.get()
+        color = current_color.get()
+        
+        obj_id = canvas.create_line(prev_x, prev_y, event.x, event.y, 
+                                    fill=color, width=thick, capstyle=tkinter.ROUND, smooth=True)
+        
+        current_canvas_objects.append(obj_id)
+        current_line_points.append((event.x / 600, 1 - (event.y / 450)))
+
+def stop_draw(event):
+    if not is_drawing_mode.get():
+        return
+    global lines_history, canvas_objects_history, undo_disabled, current_line_points, current_canvas_objects
+    
+    if len(current_line_points) > 1:
+        lines_history.append({
+            'points': current_line_points,
+            'color': current_color.get(),
+            'width': current_thickness.get()
+        })
+        canvas_objects_history.append(current_canvas_objects)
+        
+        undo_disabled = False 
+        
+    current_line_points = []
+    current_canvas_objects = []
+
+
+undo_disabled = False
+def undo(event=None):
+    global lines_history, canvas_objects_history, undo_disabled  
+
+    if undo_disabled:
+        return
+    
+    if current_line_points:
+        return
+        
+    if lines_history and canvas_objects_history:
+        lines_history.pop()
+        
+        last_line_rendered = canvas_objects_history.pop()
+        for obj_id in last_line_rendered:
+            canvas.delete(obj_id)
+            
+        canvas.update_idletasks()
+        undo_disabled = True
+
 
 def get_scatter_as_photoImage(x, y, cmap_name):
     fig = figure.Figure(figsize=(6, 4.5), dpi=100)
@@ -100,6 +178,7 @@ def get_scatter_as_photoImage(x, y, cmap_name):
 
 def update(event=None):
     global image
+    disable_draw_mode()
     x = x_axis.get()
     y = y_axis.get()
     selected_cmap = cmap_select.get()
@@ -128,6 +207,12 @@ def save():
         
         if file_path:
             _, fig_to_save = get_scatter_as_photoImage(x, y, selected_cmap)
+            ax_to_save = fig_to_save.gca()
+            for line in lines_history:
+                xs = [p[0] for p in line['points']]
+                ys = [p[1] for p in line['points']]
+                ax_to_save.plot(xs, ys, color=line['color'], linewidth=line['width']/2, transform=fig_to_save.transFigure)
+
             fig_to_save.savefig(file_path, dpi=300)
 
 
@@ -154,6 +239,45 @@ if __name__ == "__main__":
     save_btn = tkinter.Button(control_panel, text="Сохранить", command=save, width=18)
     save_btn.pack()
 
+    is_drawing_mode = tkinter.BooleanVar(value=False)
+    current_color = tkinter.StringVar(value=DEFAULT_COLOR)
+    current_thickness = tkinter.IntVar(value=DEFAULT_THICKNESS)
+
+    draw_panel = tkinter.Frame(window, padx=10, pady=5)
+    draw_panel.pack(side=tkinter.BOTTOM, fill=tkinter.X)
+
+    def toggle_draw_mode():
+        if is_drawing_mode.get():
+            is_drawing_mode.set(False)
+            draw_btn.config(relief=tkinter.RAISED, bg="SystemButtonFace")
+            window.config(cursor="")
+        else:
+            is_drawing_mode.set(True)
+            draw_btn.config(relief=tkinter.SUNKEN, bg="lightgray")
+            window.config(cursor="pencil")
+
+    def disable_draw_mode(event=None):
+        is_drawing_mode.set(False)
+        draw_btn.config(relief=tkinter.RAISED, bg="SystemButtonFace")
+        window.config(cursor="")
+
+    draw_btn = tkinter.Button(draw_panel, text="Рисование", command=toggle_draw_mode, width=12)
+    draw_btn.pack(side=tkinter.LEFT, padx=5)
+
+    tkinter.Label(draw_panel, text="Толщина:").pack(side=tkinter.LEFT, padx=2)
+    thick_entry = tkinter.Entry(draw_panel, textvariable=current_thickness, width=5)
+    thick_entry.pack(side=tkinter.LEFT, padx=5)
+
+    def choose_color():
+        color_code = colorchooser.askcolor(title="Выбор цвета")
+        if color_code[1]:
+            current_color.set(color_code[1])
+            color_block.config(bg=color_code[1])
+
+    tkinter.Label(draw_panel, text="Цвет:").pack(side=tkinter.LEFT, padx=2)
+    color_block = tkinter.Button(draw_panel, bg=current_color.get(), width=3, command=choose_color)
+    color_block.pack(side=tkinter.LEFT, padx=5)
+
     canvas = tkinter.Canvas(window, width=600, height=450, bg="white")
     canvas.pack(side=tkinter.RIGHT, fill=tkinter.BOTH, expand=True, padx=10, pady=10)
 
@@ -162,5 +286,14 @@ if __name__ == "__main__":
     x_axis.bind("<<ComboboxSelected>>", update)
     y_axis.bind("<<ComboboxSelected>>", update)
     cmap_select.bind("<<ComboboxSelected>>", update)
+    canvas.bind("<Button-1>", start_draw)
+    canvas.bind("<Button-3>", disable_draw_mode)
+    canvas.bind("<B1-Motion>", do_draw)
+    canvas.bind("<ButtonRelease-1>", stop_draw)
+    canvas.bind_all("<Control-z>", undo)
+    canvas.bind_all("<Control-Z>", undo)
+    canvas.bind_all("<Control-Key>", undo)
+    canvas.focus_set()
+
 
     window.mainloop()
