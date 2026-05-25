@@ -1,6 +1,6 @@
 import pandas
 
-df = pandas.read_csv('dataset.csv')
+df = pandas.read_csv('dataset.csv', index_col=0)
 
 categorical_cols = [
     'Country', 
