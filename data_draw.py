@@ -1,138 +1,94 @@
 import dataset
 import io
-import tkinter
-import pandas
-import matplotlib
-
-import tkinter.colorchooser as colorchooser
-
+import tkinter as tk
 from tkinter import ttk, filedialog
-from matplotlib import figure
+import matplotlib
+from matplotlib.figure import Figure
 from PIL import Image, ImageTk
 from datetime import datetime
+import pandas
+from tkinter import colorchooser
 
 df = dataset.df
-df = df.fillna('')
+df = df.fillna(0)
 cols = df.columns.tolist()
 counting_cols = dataset.counting_cols
 categorical_cols = dataset.categorical_cols
 
-window = tkinter.Tk()
+DEFAULT_THICKNESS = 6
+DEFAULT_COLOR = "#162511"
+
+window = tk.Tk()
 window.title("Диаграмма")
-window.geometry("850x520")
+window.geometry("1200x800")
 
 image = None
-DEFAULT_THICKNESS = 6
-r_val = 22
-g_val = 37
-b_val = 17
-DEFAULT_COLOR = f"#{r_val:02x}{g_val:02x}{b_val:02x}" 
-
+fig_global = None
 lines_history = []
+canvas_objects_history = []
+undo_disabled = False
 current_line_points = []
 current_canvas_objects = []
-canvas_objects_history = []
-
-def start_draw(event):
-    if not is_drawing_mode.get():
-        return
-    global current_line_points, current_canvas_objects
-    current_line_points = [(event.x / 600, 1 - (event.y / 450))]
-    current_canvas_objects = []
-
-def do_draw(event):
-    if not is_drawing_mode.get():
-        return
-    global current_line_points, current_canvas_objects
-    
-    if current_line_points:
-        prev_x = current_line_points[-1][0] * 600
-        prev_y = (1 - current_line_points[-1][1]) * 450
-        
-        thick = current_thickness.get()
-        color = current_color.get()
-        
-        obj_id = canvas.create_line(prev_x, prev_y, event.x, event.y, 
-                                    fill=color, width=thick, capstyle=tkinter.ROUND, smooth=True)
-        
-        current_canvas_objects.append(obj_id)
-        current_line_points.append((event.x / 600, 1 - (event.y / 450)))
-
-def stop_draw(event):
-    if not is_drawing_mode.get():
-        return
-    global lines_history, canvas_objects_history, undo_disabled, current_line_points, current_canvas_objects
-    
-    if len(current_line_points) > 1:
-        lines_history.append({
-            'points': current_line_points,
-            'color': current_color.get(),
-            'width': current_thickness.get()
-        })
-        canvas_objects_history.append(current_canvas_objects)
-        
-        undo_disabled = False 
-        
-    current_line_points = []
-    current_canvas_objects = []
+all_cols = counting_cols + categorical_cols
+selected_x = all_cols[0] if all_cols else ""
+selected_y = all_cols[1] if len(all_cols) > 1 else (all_cols[0] if all_cols else "")
+x_buttons = {}
+y_buttons = {}
 
 
-undo_disabled = False
-def undo(event=None):
-    global lines_history, canvas_objects_history, undo_disabled  
-
-    if undo_disabled:
-        return
-    
-    if current_line_points:
-        return
-        
-    if lines_history and canvas_objects_history:
-        lines_history.pop()
-        
-        last_line_rendered = canvas_objects_history.pop()
-        for obj_id in last_line_rendered:
-            canvas.delete(obj_id)
-            
-        canvas.update_idletasks()
-        undo_disabled = True
+def select_x_axis(col_name):
+    global selected_x, lines_history, canvas_objects_history
+    selected_x = col_name
+    lines_history.clear()
+    canvas_objects_history.clear()
+    update()
+    disable_draw_mode()
 
 
-def get_scatter_as_photoImage(x, y, cmap_name):
-    fig = figure.Figure(figsize=(6, 4.5), dpi=100)
+def select_y_axis(col_name):
+    global selected_y, lines_history, canvas_objects_history
+    selected_y = col_name
+    lines_history.clear()
+    canvas_objects_history.clear()
+    update()
+    disable_draw_mode()
+
+
+def get_scatter_as_photoImage(x, y, cmap_name, width=600, height=450):
+    global fig_global
+    dpi = 100
+    fig_width = max(width / dpi, 2.0)
+    fig_height = max(height / dpi, 2.0)
+    fig = Figure(figsize=(fig_width, fig_height), dpi=dpi)
     ax = fig.add_subplot(1, 1, 1)
     
     is_x_num = x in counting_cols
     is_y_num = y in counting_cols
     is_x_cat = x in categorical_cols
     is_y_cat = y in categorical_cols
-
+    
     try:
         cmap = matplotlib.colormaps[cmap_name]
-    except:
-        cmap = matplotlib.colormaps["plasmas"]
-
+    except Exception:
+        cmap = matplotlib.colormaps["plasma"]
+        
     # Гистограмма
     if x == y and is_x_num:
         n, bins, patches = ax.hist(df[x].dropna(), bins=10, edgecolor='black', linewidth=0.5)
         for i, patch in enumerate(patches):
-            patch.set_facecolor(cmap(i / len(patches)))
-
+            patch.set_facecolor(cmap(i / max(1, len(patches)-1)))
         ax.set_xlabel(x)
         ax.set_ylabel("Количество")
-
+        
     # Круговая диаграмма
     elif x == y and is_x_cat:
         counts = df[x].value_counts()
         colors = [cmap(i / max(1, len(counts)-1)) for i in range(len(counts))]
         ax.pie(
-            counts, 
-            labels=counts.index, 
-            autopct='%1.1f%%', 
-            colors=colors,
+            counts, labels=counts.index, autopct='%1.1f%%', colors=colors,
             wedgeprops={'edgecolor': 'black', 'linewidth': 0.5}
         )
-
+               
     # Столбчатая диаграмма
     elif is_x_cat:
         counts = df[x].value_counts()
@@ -141,21 +97,19 @@ def get_scatter_as_photoImage(x, y, cmap_name):
         ax.set_xlabel(x)
         ax.set_ylabel("Количество записей")
         ax.tick_params(axis='x', rotation=45, labelsize=9)
-
+        
     # Коробчатая диаграмма
     elif is_x_num and is_y_cat:
         categories = df[y].dropna().unique()
         data_to_plot = [df[df[y] == cat][x].dropna().values for cat in categories]
         bp = ax.boxplot(data_to_plot, vert=False, tick_labels=categories, patch_artist=True)
-
         for i, box in enumerate(bp['boxes']):
             box.set_facecolor(cmap(i / max(1, len(categories)-1)))
             box.set_edgecolor('black')
             box.set_linewidth(0.8)
-            
         ax.set_xlabel(x)
         ax.set_ylabel(y)
-
+        
     # Точечная диаграмма
     else:
         try:
@@ -163,42 +117,153 @@ def get_scatter_as_photoImage(x, y, cmap_name):
         except Exception:
             color_data = range(len(df))
             
-        ax.scatter(df[x], df[y], c=color_data, cmap=cmap_name, marker='>', alpha=0.7, edgecolors='none')
+        ax.scatter(df[x], df[y], c=color_data, cmap=cmap, marker='>', alpha=0.7, edgecolors='none')
         ax.set_xlabel(x)
         ax.set_ylabel(y)
-
+        
     fig.tight_layout()
+    fig_global = fig
+    
     buf = io.BytesIO()
-    fig.savefig(buf, format='png', dpi=100)
+    fig.savefig(buf, format='png')
     buf.seek(0)
+    
     img = Image.open(buf)
     photo_img = ImageTk.PhotoImage(img)
     return photo_img, fig
 
 
+def start_draw(event):
+    if not is_drawing_mode.get():
+        return
+    global current_line_points, current_canvas_objects
+    
+    c_width = max(canvas.winfo_width(), 10)
+    c_height = max(canvas.winfo_height(), 10)
+    
+    current_line_points = [(event.x / c_width, event.y / c_height)]
+    current_canvas_objects = []
+
+def do_draw(event):
+    if not is_drawing_mode.get():
+        return
+    global current_line_points, current_canvas_objects
+    
+    c_width = max(canvas.winfo_width(), 10)
+    c_height = max(canvas.winfo_height(), 10)
+    
+    if current_line_points:
+        prev_x = current_line_points[-1][0] * c_width
+        prev_y = current_line_points[-1][1] * c_height
+        
+        try:
+            thick = int(current_thickness.get())
+        except Exception:
+            thick = DEFAULT_THICKNESS
+            
+        color = current_color.get()
+        
+        obj_id = canvas.create_line(
+            prev_x, prev_y, event.x, event.y,
+            fill=color, width=thick, capstyle=tk.ROUND, smooth=True
+        )
+        current_canvas_objects.append(obj_id)
+        current_line_points.append((event.x / c_width, event.y / c_height))
+
+def stop_draw(event):
+    if not is_drawing_mode.get():
+        return
+    global lines_history, canvas_objects_history, undo_disabled, current_line_points, current_canvas_objects
+    
+    if len(current_line_points) > 1:
+        lines_history.append({
+            'points': current_line_points, 
+            'color': current_color.get(), 
+            'width': current_thickness.get()
+        })
+        canvas_objects_history.append(current_canvas_objects)
+        undo_disabled = False  
+        
+    current_line_points = []
+    current_canvas_objects = []
+
+
+def undo(event=None):
+    global lines_history, canvas_objects_history, undo_disabled
+    
+    if event and hasattr(event, 'keysym'):
+        is_ctrl = (event.state & 4) != 0
+        is_z_key = (event.keysym.lower() == 'z') or (event.keycode == 90)
+        if not (is_ctrl and is_z_key):
+            return
+
+    if undo_disabled or current_line_points:
+        return "break"
+        
+    if lines_history and canvas_objects_history:
+        lines_history.pop()
+        last_line_rendered = canvas_objects_history.pop()
+        for obj_id in last_line_rendered:
+            canvas.delete(obj_id)
+        canvas.update_idletasks()
+    
+    undo_disabled = True
+        
+    return "break"
+
+
 def update(event=None):
-    global image
-    disable_draw_mode()
-    x = x_axis.get()
-    y = y_axis.get()
-    selected_cmap = cmap_select.get()
+    global image, fig_global
+    x = selected_x
+    y = selected_y
+    
+    try:
+        selected_cmap = cmap_select.get()
+    except NameError:
+        selected_cmap = "plasma"
     
     if x and y:
-        global image
+        canvas_width = canvas.winfo_width()
+        canvas_height = canvas.winfo_height()
+        
+        if canvas_width < 10: canvas_width = 600
+        if canvas_height < 10: canvas_height = 450
+        
+        photo_img, fig = get_scatter_as_photoImage(x, y, selected_cmap, canvas_width, canvas_height)
+        image = photo_img
+        fig_global = fig
+        
         canvas.delete("all")
-        image, _ = get_scatter_as_photoImage(x, y, selected_cmap)
-        canvas.create_image(0, 0, anchor=tkinter.NW, image=image)
+        canvas.create_image(0, 0, anchor=tk.NW, image=image)
+        
+        for line in lines_history:
+            prev_pt = None
+            for pt in line['points']:
+                curr_x = pt[0] * canvas_width
+                curr_y = pt[1] * canvas_height
+                if prev_pt:
+                    canvas.create_line(
+                        prev_pt[0], prev_pt[1], curr_x, curr_y,
+                        fill=line['color'], width=line['width'], capstyle=tk.ROUND, smooth=True
+                    )
+                prev_pt = (curr_x, curr_y)
+                
         canvas.update_idletasks()
 
 
 def save():
-    x = x_axis.get()
-    y = y_axis.get()
-    selected_cmap = cmap_select.get()
+    x = selected_x
+    y = selected_y
     
+    try:
+        selected_cmap = cmap_select.get()
+    except NameError:
+        selected_cmap = "plasma"
+        
     if x and y:
         now = datetime.now()
         default_filename = now.strftime("graph%H_%M_%S.png")
+        
         file_path = filedialog.asksaveasfilename(
             initialfile=default_filename,
             defaultextension=".png",
@@ -206,94 +271,133 @@ def save():
         )
         
         if file_path:
-            _, fig_to_save = get_scatter_as_photoImage(x, y, selected_cmap)
+            _, fig_to_save = get_scatter_as_photoImage(x, y, selected_cmap, 600, 450)
             ax_to_save = fig_to_save.gca()
+            
             for line in lines_history:
-                xs = [p[0] for p in line['points']]
-                ys = [p[1] for p in line['points']]
-                ax_to_save.plot(xs, ys, color=line['color'], linewidth=line['width']/2, transform=fig_to_save.transFigure)
-
+                xs = [pt[0] for pt in line['points']]
+                ys = [1 - pt[1] for pt in line['points']]
+                
+                ax_to_save.plot(
+                    xs, ys, 
+                    color=line['color'], 
+                    linewidth=line['width'] / 2, 
+                    transform=fig_to_save.transFigure
+                )
+                
             fig_to_save.savefig(file_path, dpi=300)
 
 
 if __name__ == "__main__":
-    control_panel = tkinter.Frame(window, padx=15, pady=15)
-    control_panel.pack(side=tkinter.LEFT, fill=tkinter.Y)
+    window.rowconfigure(0, weight=1)
+    window.rowconfigure(1, weight=0)
+    window.columnconfigure(0, weight=0)
+    window.columnconfigure(1, weight=1)
 
-    tkinter.Label(control_panel, text="Ось X:").pack(anchor=tkinter.W, pady=(0, 2))
-    x_axis = ttk.Combobox(control_panel, values=cols, state="readonly", width=20)
-    x_axis.pack(pady=(0, 15))
-    if cols: x_axis.current(0)
+    is_drawing_mode = tk.BooleanVar(value=False)
+    current_color = tk.StringVar(value=DEFAULT_COLOR)
+    current_thickness = tk.IntVar(value=DEFAULT_THICKNESS)
 
-    tkinter.Label(control_panel, text="Ось Y:").pack(anchor=tkinter.W, pady=(0, 2))
-    y_axis = ttk.Combobox(control_panel, values=cols, state="readonly", width=20)
-    y_axis.pack(pady=(0, 15))
-    if len(cols) > 1: y_axis.current(1)
+    control_panel = tk.Frame(window, padx=15, pady=15)
+    control_panel.grid(row=0, column=0, sticky="ns")
 
-    cmap_options = ['viridis', 'plasma', 'inferno', 'magma', 'cividis', 'Greys', 'Purples', 'Blues', 'Greens', 'Oranges', 'Reds', 'YlOrBr', 'YlOrRd', 'OrRd', 'winter','PuRd', 'RdPu', 'BuPu', 'GnBu', 'PuBu', 'YlGnBu', 'PuBuGn', 'BuGn', 'YlGn', 'binary', 'gist_yarg', 'spring', 'summer', 'autumn']
-    tkinter.Label(control_panel, text="Цветовая схема:").pack(anchor=tkinter.W, pady=(0, 2))
-    cmap_select = ttk.Combobox(control_panel, values=cmap_options, state="readonly", width=20)
-    cmap_select.pack(pady=(0, 15))
-    cmap_select.current(1)
+    y_btn_frame = tk.Frame(control_panel)
+    y_btn_frame.pack(side=tk.LEFT, fill=tk.Y, padx=(0, 15))
 
-    save_btn = tkinter.Button(control_panel, text="Сохранить", command=save, width=18)
-    save_btn.pack()
+    tk.Label(y_btn_frame, text="Ось Y (Категории):", font=("Arial", 9, "bold")).pack(anchor=tk.W, pady=(0, 5))
+    
+    for col in all_cols:
+        btn = tk.Button(
+            y_btn_frame, text=col, width=18, anchor="w", 
+            command=lambda c=col: select_y_axis(c), font=("Arial", 9)
+        )
+        btn.pack(fill=tk.X, pady=2)
+        y_buttons[col] = btn
 
-    is_drawing_mode = tkinter.BooleanVar(value=False)
-    current_color = tkinter.StringVar(value=DEFAULT_COLOR)
-    current_thickness = tkinter.IntVar(value=DEFAULT_THICKNESS)
-
-    draw_panel = tkinter.Frame(window, padx=10, pady=5)
-    draw_panel.pack(side=tkinter.BOTTOM, fill=tkinter.X)
+    settings_frame = tk.Frame(control_panel, padx=10)
+    settings_frame.pack(side=tk.LEFT, fill=tk.Y)
 
     def toggle_draw_mode():
         if is_drawing_mode.get():
             is_drawing_mode.set(False)
-            draw_btn.config(relief=tkinter.RAISED, bg="SystemButtonFace")
+            draw_btn.config(relief=tk.RAISED, bg="SystemButtonFace")
             window.config(cursor="")
         else:
             is_drawing_mode.set(True)
-            draw_btn.config(relief=tkinter.SUNKEN, bg="lightgray")
+            draw_btn.config(relief=tk.SUNKEN, bg="lightgray")
             window.config(cursor="pencil")
 
     def disable_draw_mode(event=None):
         is_drawing_mode.set(False)
-        draw_btn.config(relief=tkinter.RAISED, bg="SystemButtonFace")
+        draw_btn.config(relief=tk.RAISED, bg="SystemButtonFace")
         window.config(cursor="")
 
-    draw_btn = tkinter.Button(draw_panel, text="Рисование", command=toggle_draw_mode, width=12)
-    draw_btn.pack(side=tkinter.LEFT, padx=5)
+    draw_btn = tk.Button(settings_frame, text="Рисование", command=toggle_draw_mode, font=("Arial", 9, "bold"), width=15)
+    draw_btn.pack(anchor=tk.W, pady=(0, 10))
 
-    tkinter.Label(draw_panel, text="Толщина:").pack(side=tkinter.LEFT, padx=2)
-    thick_entry = tkinter.Entry(draw_panel, textvariable=current_thickness, width=5)
-    thick_entry.pack(side=tkinter.LEFT, padx=5)
+    tk.Label(settings_frame, text="Толщина:", font=("Arial", 9)).pack(anchor=tk.W, pady=(5, 2))
+    thick_entry = tk.Entry(settings_frame, textvariable=current_thickness, width=15)
+    thick_entry.pack(anchor=tk.W, pady=(0, 10))
 
     def choose_color():
         color_code = colorchooser.askcolor(title="Выбор цвета")
-        if color_code[1]:
-            current_color.set(color_code[1])
-            color_block.config(bg=color_code[1])
+        if color_code:
+            current_color.set(color_code)
+            color_block.config(bg=color_code)
 
-    tkinter.Label(draw_panel, text="Цвет:").pack(side=tkinter.LEFT, padx=2)
-    color_block = tkinter.Button(draw_panel, bg=current_color.get(), width=3, command=choose_color)
-    color_block.pack(side=tkinter.LEFT, padx=5)
+    tk.Label(settings_frame, text="Цвет кисти:", font=("Arial", 9)).pack(anchor=tk.W, pady=(5, 2))
+    color_block = tk.Button(settings_frame, bg=current_color.get(), width=12, command=choose_color)
+    color_block.pack(anchor=tk.W, pady=(0, 15))
 
-    canvas = tkinter.Canvas(window, width=600, height=450, bg="white")
-    canvas.pack(side=tkinter.RIGHT, fill=tkinter.BOTH, expand=True, padx=10, pady=10)
+    tk.Frame(settings_frame, height=2, bd=1, relief=tk.SUNKEN).pack(fill=tk.X, pady=10)
 
-    update()
-
-    x_axis.bind("<<ComboboxSelected>>", update)
-    y_axis.bind("<<ComboboxSelected>>", update)
+    cmap_options = ['viridis', 'plasma', 'inferno', 'magma', 'cividis', 'Greys', 'Purples', 'Blues', 'Greens', 'Oranges', 'Reds', 'winter']
+    tk.Label(settings_frame, text="Схема графика:", font=("Arial", 9, "bold")).pack(anchor=tk.W, pady=(5, 2))
+    
+    cmap_select = ttk.Combobox(settings_frame, values=cmap_options, state="readonly", width=13)
+    cmap_select.pack(pady=(0, 15))
+    cmap_select.current(1)
     cmap_select.bind("<<ComboboxSelected>>", update)
+
+    save_btn = tk.Button(settings_frame, text="Сохранить", command=save, width=15, bg="#ffc107")
+    save_btn.pack(side=tk.BOTTOM, pady=(20, 0))
+
+    canvas = tk.Canvas(window, bg="white")
+    canvas.grid(row=0, column=1, sticky="nsew", padx=10, pady=10)
+
     canvas.bind("<Button-1>", start_draw)
     canvas.bind("<Button-3>", disable_draw_mode)
     canvas.bind("<B1-Motion>", do_draw)
     canvas.bind("<ButtonRelease-1>", stop_draw)
-    canvas.bind_all("<Control-z>", undo)
-    canvas.bind_all("<Control-Z>", undo)
-    canvas.bind_all("<Control-Key>", undo)
+    window.bind("<KeyPress>", undo)
     canvas.focus_set()
 
+    x_panel = tk.Frame(window, padx=15, pady=10)
+    x_panel.grid(row=1, column=1, sticky="ew")
+    
+    tk.Label(x_panel, text="Ось X (Категории):", font=("Arial", 9, "bold")).pack(anchor=tk.W, pady=(0, 5))
+    
+    x_buttons_frame = tk.Frame(x_panel)
+    x_buttons_frame.pack(fill=tk.X)
+    
+    max_columns = 3
+    for index, col in enumerate(all_cols):
+        row_idx = index // max_columns
+        col_idx = index % max_columns
+        
+        btn = tk.Button(
+            x_buttons_frame, text=col, command=lambda c=col: select_x_axis(c),
+            font=("Arial", 8), wraplength=150
+        )
+        btn.grid(row=row_idx, column=col_idx, padx=4, pady=4, sticky="ew")
+        x_buttons_frame.columnconfigure(col_idx, weight=1)
+        x_buttons[col] = btn
+
+    if all_cols:
+        select_x_axis(selected_x)
+        select_y_axis(selected_y)
+
+    canvas.bind("<Configure>", update)
+    cmap_select.bind("<<ComboboxSelected>>", lambda e: (update(), disable_draw_mode()))
 
     window.mainloop()
