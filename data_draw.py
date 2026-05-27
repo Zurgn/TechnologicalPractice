@@ -242,10 +242,7 @@ def update(event=None):
                 curr_x = pt[0] * canvas_width
                 curr_y = pt[1] * canvas_height
                 if prev_pt:
-                    canvas.create_line(
-                        prev_pt[0], prev_pt[1], curr_x, curr_y,
-                        fill=line['color'], width=line['width'], capstyle=tk.ROUND, smooth=True
-                    )
+                    canvas.create_line(prev_pt[0], prev_pt[1], curr_x, curr_y, fill=line['color'], width=line['width'], capstyle=tk.ROUND, smooth=True)
                 prev_pt = (curr_x, curr_y)
                 
         canvas.update_idletasks()
@@ -278,8 +275,7 @@ def save():
                 xs = [pt[0] for pt in line['points']]
                 ys = [1 - pt[1] for pt in line['points']]
                 
-                ax_to_save.plot(
-                    xs, ys, 
+                ax_to_save.plot(xs, ys, 
                     color=line['color'], 
                     linewidth=line['width'] / 2, 
                     transform=fig_to_save.transFigure
@@ -307,10 +303,7 @@ if __name__ == "__main__":
     tk.Label(y_btn_frame, text="Ось Y (Категории):", font=("Arial", 9, "bold")).pack(anchor=tk.W, pady=(0, 5))
     
     for col in all_cols:
-        btn = tk.Button(
-            y_btn_frame, text=col, width=18, anchor="w", 
-            command=lambda c=col: select_y_axis(c), font=("Arial", 9)
-        )
+        btn = tk.Button(y_btn_frame, text=col, width=18, anchor="w", command=lambda c=col: select_y_axis(c), font=("Arial", 9))
         btn.pack(fill=tk.X, pady=2)
         y_buttons[col] = btn
 
@@ -322,6 +315,7 @@ if __name__ == "__main__":
             is_drawing_mode.set(False)
             draw_btn.config(relief=tk.RAISED, bg="SystemButtonFace")
             window.config(cursor="")
+
         else:
             is_drawing_mode.set(True)
             draw_btn.config(relief=tk.SUNKEN, bg="lightgray")
@@ -385,10 +379,7 @@ if __name__ == "__main__":
         row_idx = index // max_columns
         col_idx = index % max_columns
         
-        btn = tk.Button(
-            x_buttons_frame, text=col, command=lambda c=col: select_x_axis(c),
-            font=("Arial", 8), wraplength=150
-        )
+        btn = tk.Button(x_buttons_frame, text=col, command=lambda c=col: select_x_axis(c), font=("Arial", 8), wraplength=150)
         btn.grid(row=row_idx, column=col_idx, padx=4, pady=4, sticky="ew")
         x_buttons_frame.columnconfigure(col_idx, weight=1)
         x_buttons[col] = btn

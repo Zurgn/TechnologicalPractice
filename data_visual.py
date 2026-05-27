@@ -181,7 +181,7 @@ if __name__ == "__main__":
     x_panel = tk.Frame(window, padx=15, pady=10)
     x_panel.grid(row=1, column=1, sticky="ew")
     
-    tk.Label(x_panel, text="Адсцисса:", font=("Arial", 10, "bold")).pack(anchor=tk.W, pady=(0, 5))
+    tk.Label(x_panel, text="Абсцисса:", font=("Arial", 10, "bold")).pack(anchor=tk.W, pady=(0, 5))
     
     x_buttons_frame = tk.Frame(x_panel)
     x_buttons_frame.pack(fill=tk.X)
