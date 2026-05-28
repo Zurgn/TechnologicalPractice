@@ -16,7 +16,7 @@ counting_cols = dataset.counting_cols
 categorical_cols = dataset.categorical_cols
 
 DEFAULT_THICKNESS = 6
-DEFAULT_COLOR = "#162511"
+DEFAULT_COLOR = f'#{22:02x}{37:02x}{17:02x}'
 
 window = tk.Tk()
 window.title("Диаграмма")
@@ -334,10 +334,11 @@ if __name__ == "__main__":
     thick_entry.pack(anchor=tk.W, pady=(0, 10))
 
     def choose_color():
-        color_code = colorchooser.askcolor(title="Выбор цвета")
-        if color_code:
-            current_color.set(color_code)
-            color_block.config(bg=color_code)
+        rgb_code, hex_code = colorchooser.askcolor(title="Выбор цвета", color=current_color.get())
+        if hex_code:
+            current_color.set(hex_code)
+            color_block.config(bg=hex_code)
+
 
     tk.Label(settings_frame, text="Цвет кисти:", font=("Arial", 9)).pack(anchor=tk.W, pady=(5, 2))
     color_block = tk.Button(settings_frame, bg=current_color.get(), width=12, command=choose_color)
