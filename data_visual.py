@@ -1,12 +1,12 @@
 import dataset
 import io
 import tkinter as tk
+import matplotlib
+import pandas
 from tkinter import ttk, filedialog
 from matplotlib.figure import Figure
 from PIL import Image, ImageTk
 from datetime import datetime
-import matplotlib
-import pandas
 
 df = dataset.df
 df = df.fillna(0)
@@ -22,8 +22,8 @@ image = None
 fig_global = None
 
 all_cols = counting_cols + categorical_cols
-selected_x = all_cols[0] if all_cols else ""
-selected_y = all_cols[1] if len(all_cols) > 1 else (all_cols[0] if all_cols else "")
+selected_x = all_cols[0]
+selected_y = all_cols[1]
 
 x_buttons = {}
 y_buttons = {}
@@ -56,6 +56,7 @@ def get_scatter_as_photoImage(x, y, cmap_name, width=600, height=450):
     except Exception:
         cmap = matplotlib.colormaps["plasma"]
         
+    # Гистограмма
     if x == y and is_x_num:
         n, bins, patches = ax.hist(df[x].dropna(), bins=10, edgecolor='black', linewidth=0.5)
         for i, patch in enumerate(patches):
@@ -63,6 +64,7 @@ def get_scatter_as_photoImage(x, y, cmap_name, width=600, height=450):
         ax.set_xlabel(x)
         ax.set_ylabel("Количество")
         
+    # Круговая диаграмма
     elif x == y and is_x_cat:
         counts = df[x].value_counts()
         colors = [cmap(i / max(1, len(counts)-1)) for i in range(len(counts))]
@@ -143,7 +145,10 @@ def save():
     if x and y and fig_global:
         now = datetime.now()
         default_filename = now.strftime("graph%H_%M_%S.png")
-        file_path = filedialog.asksaveasfilename(initialfile=default_filename, defaultextension=".png", filetypes=[("PNG Image", "*.png"), ("All Files", "*.*")])
+        file_path = filedialog.asksaveasfilename(
+            initialfile=default_filename, 
+            defaultextension=".png", 
+            filetypes=[("PNG Image", "*.png"), ("All Files", "*.*")])
         if file_path:
             fig_global.savefig(file_path, dpi=300)
 
@@ -153,26 +158,29 @@ if __name__ == "__main__":
     window.columnconfigure(0, weight=0)
     window.columnconfigure(1, weight=1)
 
-    control_panel = tk.Frame(window, padx=15, pady=15)
-    control_panel.grid(row=0, column=0, sticky="ns")
-
-    tk.Label(control_panel, text="Ордината:", font=("Arial", 10, "bold")).pack(anchor=tk.W, pady=(0, 5))
+    y_panel = tk.Frame(window, padx=15, pady=15)
+    y_panel.grid(row=0, column=0, sticky="ns")
+    tk.Label(y_panel, text="Ордината:", font=("Arial", 10, "bold")).pack(anchor=tk.W, pady=(0, 5))
     
     for col in all_cols:
-        btn = tk.Button(control_panel, text=col, width=20, anchor="w", command=lambda c=col: select_y_axis(c), font=("Arial", 9), wraplength=140)
+        btn = tk.Button(y_panel, text=col, width=20, 
+                        anchor="w", 
+                        command=lambda c=col: select_y_axis(c), 
+                        font=("Arial", 9), 
+                        wraplength=140)
         btn.pack(fill=tk.X, pady=2)
         y_buttons[col] = btn
 
-    tk.Frame(control_panel, height=15).pack()
+    tk.Frame(y_panel, height=15).pack()
     cmap_options = ['viridis', 'plasma', 'inferno', 'magma', 'cividis', 'Greys', 'Purples', 'Blues', 'Greens', 'Oranges', 'Reds', 'YlOrBr', 'YlOrRd', 'OrRd', 'winter']
-    tk.Label(control_panel, text="Цветовая схема:", font=("Arial", 10, "bold")).pack(anchor=tk.W, pady=(5, 2))
+    tk.Label(y_panel, text="Цветовая схема:", font=("Arial", 10, "bold")).pack(anchor=tk.W, pady=(5, 2))
     
-    cmap_select = ttk.Combobox(control_panel, values=cmap_options, state="readonly", width=18)
+    cmap_select = ttk.Combobox(y_panel, values=cmap_options, state="readonly", width=18)
     cmap_select.pack(pady=(0, 15))
     cmap_select.current(1)
     cmap_select.bind("<<ComboboxSelected>>", update)
 
-    save_btn = tk.Button(control_panel, text="Сохранить", command=save, width=18)
+    save_btn = tk.Button(y_panel, text="Сохранить", command=save, width=18)
     save_btn.pack(side=tk.BOTTOM, pady=(20, 0))
 
     canvas = tk.Canvas(window, bg="white")
@@ -180,7 +188,6 @@ if __name__ == "__main__":
 
     x_panel = tk.Frame(window, padx=15, pady=10)
     x_panel.grid(row=1, column=1, sticky="ew")
-    
     tk.Label(x_panel, text="Абсцисса:", font=("Arial", 10, "bold")).pack(anchor=tk.W, pady=(0, 5))
     
     x_buttons_frame = tk.Frame(x_panel)

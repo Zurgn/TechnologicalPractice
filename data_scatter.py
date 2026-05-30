@@ -47,11 +47,12 @@ def save():
             ax = fig.add_subplot()
             ax.set_xlabel(x)
             ax.set_ylabel(y)
-            ax.scatter(df[x], df[y])
+            ax.scatter(df[x], df[y], marker='>', alpha=0.7, edgecolors='none')
+            fig.tight_layout()
             fig.savefig(file_path, dpi=300)
 
-selected_x = counting_cols[0] if counting_cols else ""
-selected_y = counting_cols[1] if len(counting_cols) > 1 else (counting_cols[0] if counting_cols else "")
+selected_x = counting_cols[0]
+selected_y = counting_cols[1]
 
 x_buttons = {}
 y_buttons = {}
@@ -97,18 +98,15 @@ if __name__ == "__main__":
 
     x_panel = tkinter.Frame(window, padx=10, pady=10)
     x_panel.grid(row=1, column=1, sticky="ew")
-    
     tkinter.Label(x_panel, text="Абсцисса:", font=("Arial", 10, "bold")).pack(anchor=tkinter.W, pady=(0, 5))
     
     x_buttons_frame = tkinter.Frame(x_panel)
     x_buttons_frame.pack(fill=tkinter.X)
     
     max_columns = 3
-    
     for index, col in enumerate(counting_cols):
         row_idx = index // max_columns
         col_idx = index % max_columns
-        
         btn = tkinter.Button(x_buttons_frame, text=col, command=lambda c=col: select_x_axis(c), font=("Arial", 9), wraplength=150)
         btn.grid(row=row_idx, column=col_idx, padx=4, pady=4, sticky="ew")
         x_buttons_frame.columnconfigure(col_idx, weight=1)

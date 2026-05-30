@@ -1,12 +1,12 @@
 import dataset
 import io
 import tkinter as tk
-from tkinter import ttk, filedialog
 import matplotlib
+import pandas
+from tkinter import ttk, filedialog
 from matplotlib.figure import Figure
 from PIL import Image, ImageTk
 from datetime import datetime
-import pandas
 from tkinter import colorchooser
 
 df = dataset.df
@@ -24,14 +24,17 @@ window.geometry("1200x800")
 
 image = None
 fig_global = None
+
 lines_history = []
 canvas_objects_history = []
 undo_disabled = False
 current_line_points = []
 current_canvas_objects = []
+
 all_cols = counting_cols + categorical_cols
-selected_x = all_cols[0] if all_cols else ""
-selected_y = all_cols[1] if len(all_cols) > 1 else (all_cols[0] if all_cols else "")
+selected_x = all_cols[0]
+selected_y = all_cols[1]
+
 x_buttons = {}
 y_buttons = {}
 
@@ -59,6 +62,7 @@ def get_scatter_as_photoImage(x, y, cmap_name, width=600, height=450):
     dpi = 100
     fig_width = max(width / dpi, 2.0)
     fig_height = max(height / dpi, 2.0)
+
     fig = Figure(figsize=(fig_width, fig_height), dpi=dpi)
     ax = fig.add_subplot(1, 1, 1)
     
@@ -294,10 +298,10 @@ if __name__ == "__main__":
     current_color = tk.StringVar(value=DEFAULT_COLOR)
     current_thickness = tk.IntVar(value=DEFAULT_THICKNESS)
 
-    control_panel = tk.Frame(window, padx=15, pady=15)
-    control_panel.grid(row=0, column=0, sticky="ns")
+    y_panel = tk.Frame(window, padx=15, pady=15)
+    y_panel.grid(row=0, column=0, sticky="ns")
 
-    y_btn_frame = tk.Frame(control_panel)
+    y_btn_frame = tk.Frame(y_panel)
     y_btn_frame.pack(side=tk.LEFT, fill=tk.Y, padx=(0, 15))
 
     tk.Label(y_btn_frame, text="Ось Y (Категории):", font=("Arial", 9, "bold")).pack(anchor=tk.W, pady=(0, 5))
@@ -307,7 +311,7 @@ if __name__ == "__main__":
         btn.pack(fill=tk.X, pady=2)
         y_buttons[col] = btn
 
-    settings_frame = tk.Frame(control_panel, padx=10)
+    settings_frame = tk.Frame(y_panel, padx=10)
     settings_frame.pack(side=tk.LEFT, fill=tk.Y)
 
     def toggle_draw_mode():

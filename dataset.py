@@ -2,11 +2,9 @@ import pandas
 
 df = pandas.read_csv('dataset.csv', index_col=0)
 
-import pandas as pd
-
 # Настройка для отображения всех строк без сокращений:
-# pd.set_option('display.max_rows', None)
-# pd.set_option('display.max_columns', None)
+# pandas.set_option('display.max_rows', None)
+# pandas.set_option('display.max_columns', None)
 
 
 categorical_cols = [
