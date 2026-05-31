@@ -122,6 +122,7 @@ if __name__ == "__main__":
     for index, col in enumerate(counting_cols):
         row_idx = index // max_columns
         col_idx = index % max_columns
+        
         btn = tkinter.Button(x_buttons_frame, text=col, command=lambda c=col: select_x_axis(c), font=("Arial", 9), wraplength=150)
         btn.grid(row=row_idx, column=col_idx, padx=4, pady=4, sticky="ew")
         x_buttons_frame.columnconfigure(col_idx, weight=1)

@@ -5,7 +5,7 @@ import matplotlib
 import pandas
 from tkinter import ttk, filedialog, colorchooser
 from matplotlib.figure import Figure
-from PIL import Image, ImageTk
+from PIL import Image, ImageTk, ImageGrab
 from datetime import datetime
 
 df = dataset.df
@@ -282,7 +282,6 @@ def save():
             y = canvas.winfo_rooty()
             w = canvas.winfo_width()
             h = canvas.winfo_height()
-            from PIL import ImageGrab
             img = ImageGrab.grab(bbox=(x, y, x + w, y + h))
             img.save(file_path)
             disable_draw_mode()
