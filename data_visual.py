@@ -14,12 +14,16 @@ cols = df.columns.tolist()
 counting_cols = dataset.counting_cols
 categorical_cols = dataset.categorical_cols
 
-window = tk.Tk()
-window.title("Диаграмма")
-window.geometry("1000x1000")
-
 image = None
 fig_global = None
+
+cmap_options = [
+        'viridis', 'plasma', 'inferno', 'magma', 'cividis', 
+        'Greens', 'Blues', 'Oranges', 'Reds', 'Purples', 'Greys',
+        'YlOrBr', 'YlOrRd', 'OrRd', 'PuRd', 'RdPu', 'BuPu',
+        'GnBu', 'PuBh', 'YlGnBu', 'YlGn', 'BuGn', 'YlOrCc',
+        'PiYG', 'PRGn', 'BrBG', 'PuOr', 'RdGy', 'RdBu'
+    ]
 
 all_cols = counting_cols + categorical_cols
 selected_x = all_cols[0]
@@ -28,15 +32,18 @@ selected_y = all_cols[1]
 x_buttons = {}
 y_buttons = {}
 
+
 def select_x_axis(col_name):
     global selected_x
     selected_x = col_name
     update()
 
+
 def select_y_axis(col_name):
     global selected_y
     selected_y = col_name
     update()
+
 
 def get_scatter_as_photoImage(x, y, cmap_name, width=600, height=450):
     dpi = 100
@@ -113,6 +120,7 @@ def get_scatter_as_photoImage(x, y, cmap_name, width=600, height=450):
     photo_img = ImageTk.PhotoImage(img)
     return photo_img, fig
 
+
 def update(event=None):
     global image, fig_global
     x = selected_x
@@ -138,6 +146,7 @@ def update(event=None):
         canvas.create_image(0, 0, anchor=tk.NW, image=image)
         canvas.update_idletasks()
 
+
 def save():
     x = selected_x
     y = selected_y
@@ -152,7 +161,13 @@ def save():
         if file_path:
             fig_global.savefig(file_path, dpi=300)
 
+
 if __name__ == "__main__":
+    window = tk.Tk()
+    window.title("Диаграмма")
+    window.geometry("1200x800")
+    window.resizable(False, False)
+
     window.rowconfigure(0, weight=1)
     window.rowconfigure(1, weight=0)
     window.columnconfigure(0, weight=0)
@@ -160,19 +175,18 @@ if __name__ == "__main__":
 
     y_panel = tk.Frame(window, padx=15, pady=15)
     y_panel.grid(row=0, column=0, sticky="ns")
-    tk.Label(y_panel, text="Ордината:", font=("Arial", 10, "bold")).pack(anchor=tk.W, pady=(0, 5))
+
+    y_btn_frame = tk.Frame(y_panel)
+    y_btn_frame.pack(side=tk.LEFT, fill=tk.Y, padx=(0, 15))
+
+    tk.Label(y_btn_frame, text="Ордината:", font=("Arial", 9, "bold")).pack(anchor=tk.W, pady=(0, 5))
     
     for col in all_cols:
-        btn = tk.Button(y_panel, text=col, width=20, 
-                        anchor="w", 
-                        command=lambda c=col: select_y_axis(c), 
-                        font=("Arial", 9), 
-                        wraplength=140)
+        btn = tk.Button(y_btn_frame, text=col, width=18, anchor="w", command=lambda c=col: select_y_axis(c), font=("Arial", 9))
         btn.pack(fill=tk.X, pady=2)
         y_buttons[col] = btn
 
     tk.Frame(y_panel, height=15).pack()
-    cmap_options = ['viridis', 'plasma', 'inferno', 'magma', 'cividis', 'Greys', 'Purples', 'Blues', 'Greens', 'Oranges', 'Reds', 'YlOrBr', 'YlOrRd', 'OrRd', 'winter']
     tk.Label(y_panel, text="Цветовая схема:", font=("Arial", 10, "bold")).pack(anchor=tk.W, pady=(5, 2))
     
     cmap_select = ttk.Combobox(y_panel, values=cmap_options, state="readonly", width=18)
@@ -188,6 +202,7 @@ if __name__ == "__main__":
 
     x_panel = tk.Frame(window, padx=15, pady=10)
     x_panel.grid(row=1, column=1, sticky="ew")
+
     tk.Label(x_panel, text="Абсцисса:", font=("Arial", 10, "bold")).pack(anchor=tk.W, pady=(0, 5))
     
     x_buttons_frame = tk.Frame(x_panel)
@@ -197,13 +212,16 @@ if __name__ == "__main__":
     for index, col in enumerate(all_cols):
         row_idx = index // max_columns
         col_idx = index % max_columns
+
         btn = tk.Button(x_buttons_frame, text=col, command=lambda c=col: select_x_axis(c), font=("Arial", 9), wraplength=150)
         btn.grid(row=row_idx, column=col_idx, padx=4, pady=4, sticky="ew")
         x_buttons_frame.columnconfigure(col_idx, weight=1)
         x_buttons[col] = btn
 
-    if selected_x: select_x_axis(selected_x)
-    if selected_y: select_y_axis(selected_y)
+    if all_cols:
+        select_x_axis(selected_x)
+        select_y_axis(selected_y)
+
     canvas.bind("<Configure>", update)
 
     window.mainloop()

@@ -3,11 +3,10 @@ import io
 import tkinter as tk
 import matplotlib
 import pandas
-from tkinter import ttk, filedialog
+from tkinter import ttk, filedialog, colorchooser
 from matplotlib.figure import Figure
 from PIL import Image, ImageTk
 from datetime import datetime
-from tkinter import colorchooser
 
 df = dataset.df
 df = df.fillna(0)
@@ -18,18 +17,16 @@ categorical_cols = dataset.categorical_cols
 DEFAULT_THICKNESS = 6
 DEFAULT_COLOR = f'#{22:02x}{37:02x}{17:02x}'
 
-window = tk.Tk()
-window.title("Диаграмма")
-window.geometry("1200x800")
-
 image = None
 fig_global = None
 
-lines_history = []
-canvas_objects_history = []
-undo_disabled = False
-current_line_points = []
-current_canvas_objects = []
+cmap_options = [
+    'viridis', 'plasma', 'inferno', 'magma', 'cividis', 
+    'Greens', 'Blues', 'Oranges', 'Reds', 'Purples', 'Greys',
+    'YlOrBr', 'YlOrRd', 'OrRd', 'PuRd', 'RdPu', 'BuPu',
+    'GnBu', 'PuBh', 'YlGnBu', 'YlGn', 'BuGn', 'YlOrCc',
+    'PiYG', 'PRGn', 'BrBG', 'PuOr', 'RdGy', 'RdBu'
+]
 
 all_cols = counting_cols + categorical_cols
 selected_x = all_cols[0]
@@ -37,6 +34,12 @@ selected_y = all_cols[1]
 
 x_buttons = {}
 y_buttons = {}
+
+lines_history = []
+canvas_objects_history = []
+undo_disabled = False
+current_line_points = []
+current_canvas_objects = []
 
 
 def select_x_axis(col_name):
@@ -148,6 +151,7 @@ def start_draw(event):
     current_line_points = [(event.x / c_width, event.y / c_height)]
     current_canvas_objects = []
 
+
 def do_draw(event):
     if not is_drawing_mode.get():
         return
@@ -173,6 +177,7 @@ def do_draw(event):
         )
         current_canvas_objects.append(obj_id)
         current_line_points.append((event.x / c_width, event.y / c_height))
+
 
 def stop_draw(event):
     if not is_drawing_mode.get():
@@ -201,7 +206,7 @@ def undo(event=None):
         if not (is_ctrl and is_z_key):
             return
 
-    if undo_disabled or current_line_points:
+    if current_line_points:
         return "break"
         
     if lines_history and canvas_objects_history:
@@ -272,23 +277,23 @@ def save():
         )
         
         if file_path:
-            _, fig_to_save = get_scatter_as_photoImage(x, y, selected_cmap, 600, 450)
-            ax_to_save = fig_to_save.gca()
-            
-            for line in lines_history:
-                xs = [pt[0] for pt in line['points']]
-                ys = [1 - pt[1] for pt in line['points']]
-                
-                ax_to_save.plot(xs, ys, 
-                    color=line['color'], 
-                    linewidth=line['width'] / 2, 
-                    transform=fig_to_save.transFigure
-                )
-                
-            fig_to_save.savefig(file_path, dpi=300)
+            canvas.update_idletasks()
+            x = canvas.winfo_rootx()
+            y = canvas.winfo_rooty()
+            w = canvas.winfo_width()
+            h = canvas.winfo_height()
+            from PIL import ImageGrab
+            img = ImageGrab.grab(bbox=(x, y, x + w, y + h))
+            img.save(file_path)
+            disable_draw_mode()
 
 
 if __name__ == "__main__":
+    window = tk.Tk()
+    window.title("Диаграмма")
+    window.geometry("1200x800")
+    window.resizable(False, False)
+
     window.rowconfigure(0, weight=1)
     window.rowconfigure(1, weight=0)
     window.columnconfigure(0, weight=0)
@@ -304,7 +309,7 @@ if __name__ == "__main__":
     y_btn_frame = tk.Frame(y_panel)
     y_btn_frame.pack(side=tk.LEFT, fill=tk.Y, padx=(0, 15))
 
-    tk.Label(y_btn_frame, text="Ось Y (Категории):", font=("Arial", 9, "bold")).pack(anchor=tk.W, pady=(0, 5))
+    tk.Label(y_btn_frame, text="Ордината:", font=("Arial", 9, "bold")).pack(anchor=tk.W, pady=(0, 5))
     
     for col in all_cols:
         btn = tk.Button(y_btn_frame, text=col, width=18, anchor="w", command=lambda c=col: select_y_axis(c), font=("Arial", 9))
@@ -313,6 +318,7 @@ if __name__ == "__main__":
 
     settings_frame = tk.Frame(y_panel, padx=10)
     settings_frame.pack(side=tk.LEFT, fill=tk.Y)
+
 
     def toggle_draw_mode():
         if is_drawing_mode.get():
@@ -325,6 +331,7 @@ if __name__ == "__main__":
             draw_btn.config(relief=tk.SUNKEN, bg="lightgray")
             window.config(cursor="pencil")
 
+
     def disable_draw_mode(event=None):
         is_drawing_mode.set(False)
         draw_btn.config(relief=tk.RAISED, bg="SystemButtonFace")
@@ -336,6 +343,7 @@ if __name__ == "__main__":
     tk.Label(settings_frame, text="Толщина:", font=("Arial", 9)).pack(anchor=tk.W, pady=(5, 2))
     thick_entry = tk.Entry(settings_frame, textvariable=current_thickness, width=15)
     thick_entry.pack(anchor=tk.W, pady=(0, 10))
+
 
     def choose_color():
         rgb_code, hex_code = colorchooser.askcolor(title="Выбор цвета", color=current_color.get())
@@ -350,8 +358,7 @@ if __name__ == "__main__":
 
     tk.Frame(settings_frame, height=2, bd=1, relief=tk.SUNKEN).pack(fill=tk.X, pady=10)
 
-    cmap_options = ['viridis', 'plasma', 'inferno', 'magma', 'cividis', 'Greys', 'Purples', 'Blues', 'Greens', 'Oranges', 'Reds', 'winter']
-    tk.Label(settings_frame, text="Схема графика:", font=("Arial", 9, "bold")).pack(anchor=tk.W, pady=(5, 2))
+    tk.Label(settings_frame, text="Цветовая схема:", font=("Arial", 9, "bold")).pack(anchor=tk.W, pady=(5, 2))
     
     cmap_select = ttk.Combobox(settings_frame, values=cmap_options, state="readonly", width=13)
     cmap_select.pack(pady=(0, 15))
@@ -374,7 +381,7 @@ if __name__ == "__main__":
     x_panel = tk.Frame(window, padx=15, pady=10)
     x_panel.grid(row=1, column=1, sticky="ew")
     
-    tk.Label(x_panel, text="Ось X (Категории):", font=("Arial", 9, "bold")).pack(anchor=tk.W, pady=(0, 5))
+    tk.Label(x_panel, text="Абсцисса:", font=("Arial", 9, "bold")).pack(anchor=tk.W, pady=(0, 5))
     
     x_buttons_frame = tk.Frame(x_panel)
     x_buttons_frame.pack(fill=tk.X)

@@ -12,12 +12,7 @@ categorical_cols = [
     'Region', 
     'Year', 
     'Water Source Type', 
-    'Water Treatment Method',
-    'Healthcare Access Index (0-100)',
-    'Urbanization Rate (%)',
-    'Sanitation Coverage (% of Population)',
-    'Temperature (°C)',
-    'Population Density (people per km²)'
+    'Water Treatment Method'
 ]
 
 counting_cols = [
@@ -25,7 +20,12 @@ counting_cols = [
     'Typhoid Cases per 100,000 people',
     'Infant Mortality Rate (per 1,000 live births)',
     'GDP per Capita (USD)',
-    'Rainfall (mm per year)'
+    'Healthcare Access Index (0-100)',
+    'Urbanization Rate (%)',
+    'Sanitation Coverage (% of Population)',
+    'Rainfall (mm per year)',
+    'Temperature (°C)',
+    'Population Density (people per km²)'
 ]
 
 if __name__ == '__main__':
@@ -33,7 +33,8 @@ if __name__ == '__main__':
         print(f'Количество строк: {df.shape[0]}\nКоличество столбцов: {df.shape[1]}\n', file=file)
         print(f'Типы данных:\n{df.dtypes}\n', file=file)
         print(f'Число незаполненных ячеек:\n{df.isnull().sum()}\n', file=file)
-        print(f'Стандартные характеристики:\n{df[counting_cols].agg(['mean', 'median', 'std']).T}\n', file=file)
+        stats = df[counting_cols].agg(['mean', 'median', 'std']).T
+        print(f"Стандартные характеристики:\n{stats}\n", file=file)
         print('Уникальные значения:', file=file)
         for col in categorical_cols:
             print(df[col].value_counts(), file=file)
@@ -42,7 +43,8 @@ if __name__ == '__main__':
     print(f'Количество строк: {df.shape[0]}\nКоличество столбцов: {df.shape[1]}\n')
     print(f'Типы данных:\n{df.dtypes}\n')
     print(f'Число незаполненных ячеек:\n{df.isnull().sum()}\n')
-    print(f'Стандартные характеристики:\n{df[counting_cols].agg(['mean', 'median', 'std']).T}\n')
+    stats = df[counting_cols].agg(['mean', 'median', 'std']).T
+    print(f"Стандартные характеристики:\n{stats}\n")
     print('Уникальные значения:')
     for col in categorical_cols:
         print(df[col].value_counts())

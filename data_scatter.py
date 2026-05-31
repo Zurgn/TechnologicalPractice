@@ -1,23 +1,27 @@
 import dataset
 import io
 import tkinter
-from tkinter import ttk, filedialog
+from tkinter import filedialog
 from matplotlib import figure
+from matplotlib.figure import Figure
 from PIL import Image, ImageTk
 from datetime import datetime
 
 df = dataset.df
 counting_cols = dataset.counting_cols
 
-window = tkinter.Tk()
-window.title("Диаграмма")
-window.geometry("850x620")
-
 image = None
+fig_global = None
 
-def get_scatter_as_photoImage(x, y):
-    fig = figure.Figure(figsize=(6, 4.5), dpi=100)
-    ax = fig.add_subplot()
+def get_scatter_as_photoImage(x, y, width=600, height=450):
+    global fig_global
+    dpi = 100
+    fig_width = max(width / dpi, 2.0)
+    fig_height = max(height / dpi, 2.0)
+
+    fig = Figure(figsize=(fig_width, fig_height), dpi=dpi)
+    ax = fig.add_subplot(1, 1, 1)
+
     ax.set_xlabel(x)
     ax.set_ylabel(y)
     ax.scatter(df[x], df[y], marker='>', alpha=0.7, edgecolors='none')
@@ -63,7 +67,13 @@ def update(event=None):
     y = selected_y
     
     if x and y:
-        image = get_scatter_as_photoImage(x, y)
+        canvas_width = canvas.winfo_width()
+        canvas_height = canvas.winfo_height()
+        
+        if canvas_width < 10: canvas_width = 600
+        if canvas_height < 10: canvas_height = 450
+
+        image = get_scatter_as_photoImage(x, y, canvas_width, canvas_height)
         canvas.delete("all")
         canvas.create_image(0, 0, anchor=tkinter.NW, image=image)
 
@@ -79,6 +89,11 @@ def select_y_axis(col_name):
 
 
 if __name__ == "__main__":
+    window = tkinter.Tk()
+    window.title("Диаграмма")
+    window.geometry("1200x800")
+    window.resizable(False, False)
+
     window.rowconfigure(0, weight=1)
     window.rowconfigure(1, weight=0)
     window.columnconfigure(0, weight=0)
@@ -115,9 +130,10 @@ if __name__ == "__main__":
     save_btn = tkinter.Button(y_panel, text="Сохранить", command=save, width=18)
     save_btn.pack(side=tkinter.BOTTOM, pady=(20, 0))
 
-    if selected_x: select_x_axis(selected_x)
-    if selected_y: select_y_axis(selected_y)
+    if counting_cols:
+        select_x_axis(selected_x)
+        select_y_axis(selected_y)
 
-    update()
+    canvas.bind("<Configure>", update)
 
     window.mainloop()
